@@ -37,6 +37,13 @@ const Menuitems: MenuitemsType[] = [
 
     {
         id: uniqueId(),
+        title: "Vehiculos",
+        icon: "users-line-duotone",
+        href: "/vehiculos",
+    },
+
+    {
+        id: uniqueId(),
         title: "Dashboard 2",
         icon: "chart-line-duotone",
         href: "https://spike-nextjs-pro-main.vercel.app/dashboards/dashboard2",
