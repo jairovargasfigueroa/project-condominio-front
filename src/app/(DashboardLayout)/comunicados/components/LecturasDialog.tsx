@@ -18,7 +18,7 @@ import {
   Alert
 } from '@mui/material';
 import { IconUser, IconClock, IconMapPin } from '@tabler/icons-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { comunicadosService } from '../services';
 import { LecturaComunicado } from '../types';
 
@@ -34,13 +34,7 @@ const LecturasDialog = ({ open, onClose, comunicadoId, comunicadoTitulo }: Lectu
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open && comunicadoId) {
-      fetchLecturas();
-    }
-  }, [open, comunicadoId]);
-
-  const fetchLecturas = async () => {
+  const fetchLecturas = useCallback(async () => {
     if (!comunicadoId) return;
     
     try {
@@ -62,7 +56,13 @@ const LecturasDialog = ({ open, onClose, comunicadoId, comunicadoTitulo }: Lectu
     } finally {
       setLoading(false);
     }
-  };
+  }, [comunicadoId]);
+
+  useEffect(() => {
+    if (open && comunicadoId) {
+      fetchLecturas();
+    }
+  }, [open, comunicadoId, fetchLecturas]);
 
   const formatFechaLectura = (fecha: string) => {
     return new Date(fecha).toLocaleString('es-ES', {
@@ -95,7 +95,7 @@ const LecturasDialog = ({ open, onClose, comunicadoId, comunicadoTitulo }: Lectu
             </Typography>
             {comunicadoTitulo && (
               <Typography variant="body2" color="textSecondary">
-                "{comunicadoTitulo}"
+                &ldquo;{comunicadoTitulo}&rdquo;
               </Typography>
             )}
           </Box>
