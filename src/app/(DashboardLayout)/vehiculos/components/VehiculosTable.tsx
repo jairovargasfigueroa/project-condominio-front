@@ -354,6 +354,8 @@ export default function VehiculosTable() {
               page={page - 1} // Convertir a 0-indexed para MUI
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
+              showFirstButton={true}    // ← Solo agregar esta línea
+              showLastButton={true}     // ← Solo agregar esta línea
               labelRowsPerPage="Filas por página:"
               labelDisplayedRows={({ from, to, count }) =>
                 `${from}-${to} de ${count !== -1 ? count : `más de ${to}`}`

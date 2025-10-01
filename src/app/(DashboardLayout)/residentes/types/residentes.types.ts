@@ -4,9 +4,16 @@ export interface Residente {
   usuario: {
     username: string;
     email: string;
-    telefono: string;
+    first_name?: string;
+    last_name?: string;
+    telefono?: string;
+    foto_perfil_url?: string;
   };
   zona: string;
+  vivienda?: {
+    id: string;
+    numero: string;
+  } | null;
   activo: boolean;
   fechaIngreso?: string;
   fechaActualizacion?: string;
@@ -18,17 +25,27 @@ export interface CreateResidenteData {
     username: string;
     email: string;
     password: string;
+    first_name?: string;
+    last_name?: string;
+    telefono?: string;
+    foto_perfil?: File;
   };
   zona: string;
+  vivienda_id?: string | null;
 }
 
 export interface UpdateResidenteData {
   usuario?: {
     username?: string;
     email?: string;
+    first_name?: string;
+    last_name?: string;
     telefono?: string;
+    foto_perfil?: File;
+    
   };
   zona?: string;
+  vivienda_id?: string | null;
   activo?: boolean;
   observaciones?: string;
 }
@@ -69,5 +86,5 @@ export interface ResidenteDialogFormProps {
   onClose: () => void;
   mode?: "create" | "edit";
   residente?: Residente | null;
-  onSubmit: (data: CreateResidenteData | UpdateResidenteData) => Promise<void> | void;
+  onSubmit: (data: CreateResidenteData | UpdateResidenteData | FormData) => Promise<void> | void;
 }

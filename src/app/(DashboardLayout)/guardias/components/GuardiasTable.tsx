@@ -16,30 +16,31 @@ import {
 } from "@mui/material";
 import { useCallback, useMemo, useState } from "react";
 import DashboardCard from "../../components/shared/DashboardCard";
-import { useResidentes } from "../hooks";
-import { CreateResidenteData, Residente, UpdateResidenteData } from "../types";
+import { useGuardias } from "../hooks";
+import { CreateGuardiaData, Guardia, UpdateGuardiaData } from "../types";
 import { IconPlus } from "@tabler/icons-react";
-import ResidenteDialogForm from "./ResidenteDialogForm";
+import GuardiaDialogForm from "./GuardiaDialogForm";
 import ConfirmDialog from "./ConfirmDialog";
 
 // ✅ CONSTANTES OPTIMIZADAS (fuera del componente)
-const TABLE_HEADERS = ['Foto', 'Id', 'Usuario', 'Email', 'Zona', 'Vivienda', 'Acciones'];
+const TABLE_HEADERS = ['Foto', 'Id', 'Usuario', 'Nombre', 'Apellido', 'Email', 'Estado', 'Acciones'];
 
 const ROWS_PER_PAGE_OPTIONS = [2, 5, 10, 25, 50];
 
 // ✅ Función para extraer datos (con validaciones seguras)
-const getRowData = (residente: any) => [
-  residente?.usuario?.foto_perfil_url || null,                    // Foto de perfil URL
-  residente?.id || 'N/A',                                         // ID del residente
-  residente?.usuario?.username || 'Sin usuario',                  // Nombre de usuario (validación segura)
-  residente?.usuario?.email || 'Sin email',                      // Email del usuario (validación segura)
-  residente?.zona || 'Sin zona',                                 // Zona del residente
-  residente?.vivienda?.numero || 'Sin asignar',                   // Número de vivienda (navegación segura)
+const getRowData = (guardia: any) => [
+  guardia?.usuario?.foto_perfil_url || null,                       // URL de la foto
+  guardia?.id || 'N/A',                                            // ID del guardia
+  guardia?.usuario?.username || 'Sin usuario',                     // Nombre de usuario
+  guardia?.usuario?.first_name || 'Sin nombre',                    // Nombre
+  guardia?.usuario?.last_name || 'Sin apellido',                   // Apellido  
+  guardia?.usuario?.email || 'Sin email',                          // Email del usuario
+  guardia?.usuario?.is_active ? 'Activo' : 'Inactivo',             // Estado activo/inactivo
 ];
 
-export default function ResidentesTable() {
+export default function GuardiasTable() {
   const {
-    residentes,
+    guardias,
     loading,
     submitting,   // ✅ Ahora viene del hook
     error,
@@ -48,22 +49,21 @@ export default function ResidentesTable() {
     total,
     changePage,
     changePageSize,
-    createResidente,
-    updateResidente,
-    deleteResidente,  // 🆕 Agregar deleteResidente
+    createGuardia,
+    updateGuardia,
+    deleteGuardia,  // 🆕 Agregar deleteGuardia
     refetch
 
-  } = useResidentes();
+  } = useGuardias();
 
   // ✅ TODOS LOS HOOKS PRIMERO (Reglas de React)
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
-  const [selectedResidente, setSelectedResidente] = useState<Residente | null>(null);
-  // ❌ ELIMINADO: const [submitting, setSubmitting] = useState(false); - Ahora viene del hook
+  const [selectedGuardia, setSelectedGuardia] = useState<Guardia | null>(null);
   
   // ✅ Estados para el dialog de confirmación de eliminación
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [residenteToDelete, setResidenteToDelete] = useState<string | null>(null);
+  const [guardiaToDelete, setGuardiaToDelete] = useState<string | null>(null);
 
   // ✅ Estados para notificaciones simples
   const [notification, setNotification] = useState<{
@@ -76,47 +76,46 @@ export default function ResidentesTable() {
     severity: 'success'
   });
 
-  // ✅ Abrir diálogo para CREAR nuevo residente
+  // ✅ Abrir diálogo para CREAR nuevo guardia
   const handleOpenCreate = useCallback(() => {
     setDialogMode("create");
-    setSelectedResidente(null);
+    setSelectedGuardia(null);
     setDialogOpen(true);
   }, []);
 
-  // ✅ Abrir diálogo para EDITAR residente existente
-  const handleOpenEdit = useCallback((residente: Residente) => {
+  // ✅ Abrir diálogo para EDITAR guardia existente
+  const handleOpenEdit = useCallback((guardia: Guardia) => {
     setDialogMode("edit");
-    setSelectedResidente(residente);
+    setSelectedGuardia(guardia);
     setDialogOpen(true);
   }, []);
 
   // ✅ Cerrar diálogo
   const handleCloseDialog = useCallback(() => {
     setDialogOpen(false);
-    setSelectedResidente(null);
+    setSelectedGuardia(null);
   }, []);
 
   // ✅ MÉTODO ESPECÍFICO PARA CREAR
-  const handleCreateResidente = useCallback(async (formData: CreateResidenteData | FormData) => {
+  const handleCreateGuardia = useCallback(async (formData: CreateGuardiaData | FormData) => {
     try {
-      // ❌ ELIMINADO: setSubmitting(true); - El hook lo maneja automáticamente
-      console.log('🚀 CREAR - Iniciando creación de residente...');
+      console.log('🚀 CREAR - Iniciando creación de guardia...');
       
-      await createResidente(formData);
+      await createGuardia(formData);
       
-      console.log('✅ CREAR - Residente creado exitosamente');
+      console.log('✅ CREAR - Guardia creado exitosamente');
       await refetch();
       
       // Mostrar notificación de éxito
       setNotification({
         open: true,
-        message: 'Residente creado exitosamente',
+        message: 'Guardia creado exitosamente',
         severity: 'success'
       });
       
       // Cerrar modal solo si fue exitoso
       setDialogOpen(false);
-      setSelectedResidente(null);
+      setSelectedGuardia(null);
       
     } catch (error) {
       console.error('❌ ERROR CREAR:', error);
@@ -124,41 +123,39 @@ export default function ResidentesTable() {
       // Mostrar notificación de error
       setNotification({
         open: true,
-        message: 'Error al crear el residente',
+        message: 'Error al crear el guardia',
         severity: 'error'
       });
       
       // Modal permanece abierto para mostrar error
     }
-    // ❌ ELIMINADO: finally con setSubmitting(false) - El hook lo maneja automáticamente
-  }, [createResidente, refetch]);
+  }, [createGuardia, refetch]);
 
   // ✅ MÉTODO ESPECÍFICO PARA EDITAR
-  const handleEditResidente = useCallback(async (formData: UpdateResidenteData | FormData) => {
-    if (!selectedResidente) {
-      console.error('❌ No hay residente seleccionado para editar');
+  const handleEditGuardia = useCallback(async (formData: UpdateGuardiaData | FormData) => {
+    if (!selectedGuardia) {
+      console.error('❌ No hay guardia seleccionado para editar');
       return;
     }
     
     try {
-      // ❌ ELIMINADO: setSubmitting(true); - El hook lo maneja automáticamente
-      console.log('🔄 EDITAR - Iniciando edición de residente:', selectedResidente.id);
+      console.log('🔄 EDITAR - Iniciando edición de guardia:', selectedGuardia.id);
       
-      await updateResidente(selectedResidente.id, formData);
+      await updateGuardia(selectedGuardia.id, formData);
       
-      console.log('✅ EDITAR - Residente actualizado exitosamente');
+      console.log('✅ EDITAR - Guardia actualizado exitosamente');
       await refetch();
       
       // Mostrar notificación de éxito
       setNotification({
         open: true,
-        message: 'Residente actualizado exitosamente',
+        message: 'Guardia actualizado exitosamente',
         severity: 'success'
       });
       
       // Cerrar modal solo si fue exitoso
       setDialogOpen(false);
-      setSelectedResidente(null);
+      setSelectedGuardia(null);
       
     } catch (error) {
       console.error('❌ ERROR EDITAR:', error);
@@ -166,51 +163,48 @@ export default function ResidentesTable() {
       // Mostrar notificación de error
       setNotification({
         open: true,
-        message: 'Error al actualizar el residente',
+        message: 'Error al actualizar el guardia',
         severity: 'error'
       });
       
       // Modal permanece abierto para mostrar error
     }
-    // ❌ ELIMINADO: finally con setSubmitting(false) - El hook lo maneja automáticamente
-  }, [selectedResidente, updateResidente, refetch]);
+  }, [selectedGuardia, updateGuardia, refetch]);
 
   // ✅ ABRIR DIALOG DE CONFIRMACIÓN PARA ELIMINAR
-  const handleOpenDeleteDialog = useCallback((residenteId: string) => {
-    setResidenteToDelete(residenteId);
+  const handleOpenDeleteDialog = useCallback((guardiaId: string) => {
+    setGuardiaToDelete(guardiaId);
     setConfirmDialogOpen(true);
   }, []);
 
   // ✅ CERRAR DIALOG DE CONFIRMACIÓN
   const handleCloseDeleteDialog = useCallback(() => {
     setConfirmDialogOpen(false);
-    setResidenteToDelete(null);
+    setGuardiaToDelete(null);
   }, []);
 
   // ✅ MÉTODO ESPECÍFICO PARA ELIMINAR (SIN CONFIRMACIÓN AQUÍ)
-  const handleDeleteResidente = useCallback(async () => {
-    if (!residenteToDelete) return;
+  const handleDeleteGuardia = useCallback(async () => {
+    if (!guardiaToDelete) return;
     
     try {
-      // ❌ ELIMINADO: setSubmitting(true); - El hook lo maneja automáticamente
-      console.log('🗑️ ELIMINAR - Iniciando eliminación de residente:', residenteToDelete);
+      console.log('🗑️ ELIMINAR - Iniciando eliminación de guardia:', guardiaToDelete);
       
-      // ✅ deleteResidente ya maneja todo: elimina, actualiza estado y navega páginas
-      await deleteResidente(residenteToDelete);
+      // ✅ deleteGuardia ya maneja todo: elimina, actualiza estado y navega páginas
+      await deleteGuardia(guardiaToDelete);
       
-      console.log('✅ ELIMINAR - Residente eliminado exitosamente');
-      // ❌ NO llamar refetch() aquí - deleteResidente ya manejó todo
+      console.log('✅ ELIMINAR - Guardia eliminado exitosamente');
       
       // Mostrar notificación de éxito
       setNotification({
         open: true,
-        message: 'Residente eliminado exitosamente',
+        message: 'Guardia eliminado exitosamente',
         severity: 'success'
       });
       
       // Cerrar dialog de confirmación
       setConfirmDialogOpen(false);
-      setResidenteToDelete(null);
+      setGuardiaToDelete(null);
       
     } catch (error) {
       console.error('❌ ERROR ELIMINAR:', error);
@@ -218,23 +212,22 @@ export default function ResidentesTable() {
       // Mostrar notificación de error
       setNotification({
         open: true,
-        message: 'Error al eliminar el residente',
+        message: 'Error al eliminar el guardia',
         severity: 'error'
       });
       
       // El dialog de confirmación permanece abierto para mostrar el error
     }
-    // ❌ ELIMINADO: finally con setSubmitting(false) - El hook lo maneja automáticamente
-  }, [residenteToDelete, deleteResidente]);
+  }, [guardiaToDelete, deleteGuardia]);
 
   // ✅ MÉTODO COORDINADOR (decide cuál llamar)
-  const handleSubmitResidente = useCallback(async (formData: CreateResidenteData | UpdateResidenteData | FormData) => {
+  const handleSubmitGuardia = useCallback(async (formData: CreateGuardiaData | UpdateGuardiaData | FormData) => {
     if (dialogMode === "edit") {
-      await handleEditResidente(formData as UpdateResidenteData);
+      await handleEditGuardia(formData as UpdateGuardiaData | FormData);
     } else {
-      await handleCreateResidente(formData as CreateResidenteData);
+      await handleCreateGuardia(formData as CreateGuardiaData | FormData);
     }
-  }, [dialogMode, handleCreateResidente, handleEditResidente]);
+  }, [dialogMode, handleCreateGuardia, handleEditGuardia]);
 
   // ✅ Cerrar notificación
   const handleCloseNotification = useCallback(() => {
@@ -268,55 +261,59 @@ export default function ResidentesTable() {
     ))
   ), []);
 
-  // ✅ Rows memoizados - solo si hay residentes
+  // ✅ Rows memoizados - solo si hay guardias
   const tableRows = useMemo(() => {
-    if (!residentes || residentes.length === 0) return [];
+    if (!guardias || guardias.length === 0) return [];
     
-    return residentes.map((residente: Residente) => {
-      const rowData = getRowData(residente);
+    return guardias.map((guardia: Guardia) => {
+      const rowData = getRowData(guardia);
       
       return (
-        <TableRow key={residente.id}>
+        <TableRow key={guardia.id}>
           {rowData.map((data, index) => (
             <TableCell key={index}>
-              {index === 0 ? ( // Campo de foto
-                data ? (
-                  <Box 
-                    component="img" 
-                    src={data} 
-                    alt="Foto de perfil"
-                    sx={{ 
-                      width: 40, 
-                      height: 40, 
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '2px solid #e0e0e0'
-                    }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/images/profile/user-1.jpg';
-                    }}
-                  />
-                ) : (
-                  <Box 
-                    sx={{ 
-                      width: 40, 
-                      height: 40, 
-                      borderRadius: '50%',
-                      backgroundColor: 'grey.300',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      border: '2px solid #e0e0e0'
-                    }}
-                  >
-                    <Typography variant="caption" color="textSecondary">Sin foto</Typography>
-                  </Box>
-                )
+              {index === 0 ? (
+                // Celda de foto
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {data ? (
+                    <img
+                      src={data as string}
+                      alt="Foto perfil"
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        border: '1px solid #ddd'
+                      }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        backgroundColor: 'grey.300',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        color: 'grey.600'
+                      }}
+                    >
+                      Sin foto
+                    </Box>
+                  )}
+                </Box>
               ) : (
+                // Otras celdas
                 <Typography 
                   variant={index === 1 ? "body1" : "body2"}
                   fontWeight={index === 1 ? 600 : index === 2 ? 500 : 400}
-                  color={index === 3 ? "primary.main" : "textPrimary"}
+                  color={index === 5 ? "primary.main" : index === 6 ? (data === 'Activo' ? 'success.main' : 'error.main') : "textPrimary"}
                 >
                   {data}
                 </Typography>
@@ -329,7 +326,7 @@ export default function ResidentesTable() {
               <Button 
                 size="small" 
                 variant="outlined" 
-                onClick={() => handleOpenEdit(residente)}
+                onClick={() => handleOpenEdit(guardia)}
               >
                 Editar
               </Button>
@@ -337,7 +334,7 @@ export default function ResidentesTable() {
                 size="small" 
                 variant="outlined" 
                 color="error"
-                onClick={() => handleOpenDeleteDialog(residente.id)}
+                onClick={() => handleOpenDeleteDialog(guardia.id)}
                 disabled={submitting}
               >
                 Eliminar
@@ -347,12 +344,12 @@ export default function ResidentesTable() {
         </TableRow>
       );
     });
-  }, [residentes, handleOpenEdit, handleOpenDeleteDialog, submitting]);
+  }, [guardias, handleOpenEdit, handleOpenDeleteDialog, submitting]);
 
   // ✅ RENDERIZADO CONDICIONAL (después de todos los hooks)
   if (loading) {
     return (
-      <DashboardCard title="Residentes">
+      <DashboardCard title="Guardias">
         <Box display="flex" justifyContent="center" p={3}>
           <CircularProgress />
         </Box>
@@ -362,36 +359,15 @@ export default function ResidentesTable() {
 
   if (error) {
     return (
-      <DashboardCard title="Residentes">
+      <DashboardCard title="Guardias">
         <Alert severity="error">{error}</Alert>
-      </DashboardCard>
-    );
-  }
-
-  // Si no hay residentes, mostrar mensaje
-  if (!residentes || residentes.length === 0) {
-    return (
-      <DashboardCard title="Residentes">
-        <Box display="flex" flexDirection="column" alignItems="center" p={3}>
-          <Typography variant="body1" color="textSecondary" mb={2}>
-            No hay residentes registrados
-          </Typography>
-          <Button 
-            variant="contained" 
-            color="primary"
-            onClick={handleOpenCreate}
-            startIcon={<IconPlus />}
-          >
-            Crear Primer Residente
-          </Button>
-        </Box>
       </DashboardCard>
     );
   }
 
   return (
     <DashboardCard 
-      title="Residentes"
+      title="Guardias"
       action={
       <Button 
         variant="contained" 
@@ -399,14 +375,14 @@ export default function ResidentesTable() {
         onClick={handleOpenCreate}
         startIcon={<IconPlus />}  // Opcional: icono
       >
-        Nuevo Residente
+        Nuevo Guardia
       </Button>
     }
     >
       <Box sx={{ overflow: 'auto', width: { xs: '280px', sm: 'auto' } }}>
         <TableContainer>
           <Table
-            aria-label="tabla de residentes"
+            aria-label="tabla de guardias"
             sx={{
               whiteSpace: "nowrap",
               mt: 2
@@ -418,7 +394,15 @@ export default function ResidentesTable() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {tableRows}
+              {tableRows.length > 0 ? tableRows : (
+                <TableRow>
+                  <TableCell colSpan={TABLE_HEADERS.length} align="center">
+                    <Typography variant="body1" color="textSecondary" py={4}>
+                      No hay guardias registrados
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
@@ -440,22 +424,22 @@ export default function ResidentesTable() {
         />
       </Box>
       
-      {/* Dialog para crear/editar residentes */}
-      <ResidenteDialogForm 
+      {/* Dialog para crear/editar guardias */}
+      <GuardiaDialogForm 
         open={dialogOpen}
         mode={dialogMode}
-        residente={selectedResidente}
+        guardia={selectedGuardia}
         onClose={handleCloseDialog}
-        onSubmit={handleSubmitResidente}
+        onSubmit={handleSubmitGuardia}
       />
 
       {/* Dialog de confirmación para eliminar */}
       <ConfirmDialog
         open={confirmDialogOpen}
         onClose={handleCloseDeleteDialog}
-        onConfirm={handleDeleteResidente}
-        title="Eliminar Residente"
-        message={`¿Estás seguro de que quieres eliminar este residente?\n\nEsta acción no se puede deshacer.`}
+        onConfirm={handleDeleteGuardia}
+        title="Eliminar Guardia"
+        message={`¿Estás seguro de que quieres eliminar este guardia?\n\nEsta acción no se puede deshacer.`}
         confirmText="Eliminar"
         cancelText="Cancelar"
         loading={submitting}

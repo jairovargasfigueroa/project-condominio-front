@@ -16,30 +16,52 @@ import {
 } from "@mui/material";
 import { useCallback, useMemo, useState } from "react";
 import DashboardCard from "../../components/shared/DashboardCard";
-import { useResidentes } from "../hooks";
-import { CreateResidenteData, Residente, UpdateResidenteData } from "../types";
+import { useComunicados } from "../hooks";
+import { CreateComunicadoData, Comunicado, UpdateComunicadoData } from "../types";
 import { IconPlus } from "@tabler/icons-react";
-import ResidenteDialogForm from "./ResidenteDialogForm";
+import ComunicadoDialogForm from "./ComunicadoDialogForm";
 import ConfirmDialog from "./ConfirmDialog";
+import LecturasDialog from "./LecturasDialog";
 
 // ✅ CONSTANTES OPTIMIZADAS (fuera del componente)
-const TABLE_HEADERS = ['Foto', 'Id', 'Usuario', 'Email', 'Zona', 'Vivienda', 'Acciones'];
+const TABLE_HEADERS = ['Id', 'Título', 'Contenido', 'Fecha Publicación', 'Acciones'];
 
 const ROWS_PER_PAGE_OPTIONS = [2, 5, 10, 25, 50];
 
 // ✅ Función para extraer datos (con validaciones seguras)
-const getRowData = (residente: any) => [
-  residente?.usuario?.foto_perfil_url || null,                    // Foto de perfil URL
-  residente?.id || 'N/A',                                         // ID del residente
-  residente?.usuario?.username || 'Sin usuario',                  // Nombre de usuario (validación segura)
-  residente?.usuario?.email || 'Sin email',                      // Email del usuario (validación segura)
-  residente?.zona || 'Sin zona',                                 // Zona del residente
-  residente?.vivienda?.numero || 'Sin asignar',                   // Número de vivienda (navegación segura)
-];
+const getRowData = (comunicado: any) => {
+  // 🔍 DEBUG: Ver los datos originales
+  console.log(`📝 COMUNICADO DEBUG - Comunicado ${comunicado?.id}:`, {
+    comunicado_original: comunicado
+  });
 
-export default function ResidentesTable() {
+  // Formatear fecha
+  const fechaFormateada = comunicado?.fecha_publicacion 
+    ? new Date(comunicado.fecha_publicacion).toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      })
+    : 'Sin fecha';
+
+  // Truncar contenido si es muy largo
+  const contenidoTruncado = comunicado?.contenido 
+    ? comunicado.contenido.length > 50 
+      ? `${comunicado.contenido.substring(0, 50)}...`
+      : comunicado.contenido
+    : 'Sin contenido';
+
+  return [
+    comunicado?.id || 'N/A',                                      // ID del comunicado
+    comunicado?.titulo || 'Sin título',                          // Título del comunicado
+    contenidoTruncado,                                           // Contenido truncado
+    fechaFormateada,                                             // Fecha formateada
+  ];
+};
+
+export default function ComunicadosTable() {
   const {
-    residentes,
+    comunicados,
     loading,
     submitting,   // ✅ Ahora viene del hook
     error,
@@ -48,22 +70,25 @@ export default function ResidentesTable() {
     total,
     changePage,
     changePageSize,
-    createResidente,
-    updateResidente,
-    deleteResidente,  // 🆕 Agregar deleteResidente
+    createComunicado,
+    updateComunicado,
+    deleteComunicado,  // 🆕 Agregar deleteComunicado
     refetch
 
-  } = useResidentes();
+  } = useComunicados();
 
   // ✅ TODOS LOS HOOKS PRIMERO (Reglas de React)
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
-  const [selectedResidente, setSelectedResidente] = useState<Residente | null>(null);
-  // ❌ ELIMINADO: const [submitting, setSubmitting] = useState(false); - Ahora viene del hook
+  const [selectedComunicado, setSelectedComunicado] = useState<Comunicado | null>(null);
   
   // ✅ Estados para el dialog de confirmación de eliminación
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [residenteToDelete, setResidenteToDelete] = useState<string | null>(null);
+  const [comunicadoToDelete, setComunicadoToDelete] = useState<string | null>(null);
+
+  // ✅ Estados para el diálogo de lecturas
+  const [lecturasDialogOpen, setLecturasDialogOpen] = useState(false);
+  const [comunicadoParaLecturas, setComunicadoParaLecturas] = useState<{id: string, titulo: string} | null>(null);
 
   // ✅ Estados para notificaciones simples
   const [notification, setNotification] = useState<{
@@ -76,47 +101,61 @@ export default function ResidentesTable() {
     severity: 'success'
   });
 
-  // ✅ Abrir diálogo para CREAR nuevo residente
+  // ✅ Abrir diálogo para CREAR nuevo comunicado
   const handleOpenCreate = useCallback(() => {
     setDialogMode("create");
-    setSelectedResidente(null);
+    setSelectedComunicado(null);
     setDialogOpen(true);
   }, []);
 
-  // ✅ Abrir diálogo para EDITAR residente existente
-  const handleOpenEdit = useCallback((residente: Residente) => {
+  // ✅ Abrir diálogo para EDITAR comunicado existente
+  const handleOpenEdit = useCallback((comunicado: Comunicado) => {
     setDialogMode("edit");
-    setSelectedResidente(residente);
+    setSelectedComunicado(comunicado);
     setDialogOpen(true);
   }, []);
 
   // ✅ Cerrar diálogo
   const handleCloseDialog = useCallback(() => {
     setDialogOpen(false);
-    setSelectedResidente(null);
+    setSelectedComunicado(null);
+  }, []);
+
+  // ✅ Abrir diálogo de lecturas
+  const handleOpenLecturas = useCallback((comunicado: Comunicado) => {
+    setComunicadoParaLecturas({
+      id: comunicado.id,
+      titulo: comunicado.titulo
+    });
+    setLecturasDialogOpen(true);
+  }, []);
+
+  // ✅ Cerrar diálogo de lecturas
+  const handleCloseLecturas = useCallback(() => {
+    setLecturasDialogOpen(false);
+    setComunicadoParaLecturas(null);
   }, []);
 
   // ✅ MÉTODO ESPECÍFICO PARA CREAR
-  const handleCreateResidente = useCallback(async (formData: CreateResidenteData | FormData) => {
+  const handleCreateComunicado = useCallback(async (formData: CreateComunicadoData) => {
     try {
-      // ❌ ELIMINADO: setSubmitting(true); - El hook lo maneja automáticamente
-      console.log('🚀 CREAR - Iniciando creación de residente...');
+      console.log('🚀 CREAR - Iniciando creación de comunicado...');
       
-      await createResidente(formData);
+      await createComunicado(formData);
       
-      console.log('✅ CREAR - Residente creado exitosamente');
+      console.log('✅ CREAR - Comunicado creado exitosamente');
       await refetch();
       
       // Mostrar notificación de éxito
       setNotification({
         open: true,
-        message: 'Residente creado exitosamente',
+        message: 'Comunicado creado exitosamente',
         severity: 'success'
       });
       
       // Cerrar modal solo si fue exitoso
       setDialogOpen(false);
-      setSelectedResidente(null);
+      setSelectedComunicado(null);
       
     } catch (error) {
       console.error('❌ ERROR CREAR:', error);
@@ -124,41 +163,39 @@ export default function ResidentesTable() {
       // Mostrar notificación de error
       setNotification({
         open: true,
-        message: 'Error al crear el residente',
+        message: 'Error al crear el comunicado',
         severity: 'error'
       });
       
       // Modal permanece abierto para mostrar error
     }
-    // ❌ ELIMINADO: finally con setSubmitting(false) - El hook lo maneja automáticamente
-  }, [createResidente, refetch]);
+  }, [createComunicado, refetch]);
 
   // ✅ MÉTODO ESPECÍFICO PARA EDITAR
-  const handleEditResidente = useCallback(async (formData: UpdateResidenteData | FormData) => {
-    if (!selectedResidente) {
-      console.error('❌ No hay residente seleccionado para editar');
+  const handleEditComunicado = useCallback(async (formData: UpdateComunicadoData) => {
+    if (!selectedComunicado) {
+      console.error('❌ No hay comunicado seleccionado para editar');
       return;
     }
     
     try {
-      // ❌ ELIMINADO: setSubmitting(true); - El hook lo maneja automáticamente
-      console.log('🔄 EDITAR - Iniciando edición de residente:', selectedResidente.id);
+      console.log('🔄 EDITAR - Iniciando edición de comunicado:', selectedComunicado.id);
       
-      await updateResidente(selectedResidente.id, formData);
+      await updateComunicado(selectedComunicado.id, formData);
       
-      console.log('✅ EDITAR - Residente actualizado exitosamente');
+      console.log('✅ EDITAR - Comunicado actualizado exitosamente');
       await refetch();
       
       // Mostrar notificación de éxito
       setNotification({
         open: true,
-        message: 'Residente actualizado exitosamente',
+        message: 'Comunicado actualizado exitosamente',
         severity: 'success'
       });
       
       // Cerrar modal solo si fue exitoso
       setDialogOpen(false);
-      setSelectedResidente(null);
+      setSelectedComunicado(null);
       
     } catch (error) {
       console.error('❌ ERROR EDITAR:', error);
@@ -166,51 +203,48 @@ export default function ResidentesTable() {
       // Mostrar notificación de error
       setNotification({
         open: true,
-        message: 'Error al actualizar el residente',
+        message: 'Error al actualizar el comunicado',
         severity: 'error'
       });
       
       // Modal permanece abierto para mostrar error
     }
-    // ❌ ELIMINADO: finally con setSubmitting(false) - El hook lo maneja automáticamente
-  }, [selectedResidente, updateResidente, refetch]);
+  }, [selectedComunicado, updateComunicado, refetch]);
 
   // ✅ ABRIR DIALOG DE CONFIRMACIÓN PARA ELIMINAR
-  const handleOpenDeleteDialog = useCallback((residenteId: string) => {
-    setResidenteToDelete(residenteId);
+  const handleOpenDeleteDialog = useCallback((comunicadoId: string) => {
+    setComunicadoToDelete(comunicadoId);
     setConfirmDialogOpen(true);
   }, []);
 
   // ✅ CERRAR DIALOG DE CONFIRMACIÓN
   const handleCloseDeleteDialog = useCallback(() => {
     setConfirmDialogOpen(false);
-    setResidenteToDelete(null);
+    setComunicadoToDelete(null);
   }, []);
 
   // ✅ MÉTODO ESPECÍFICO PARA ELIMINAR (SIN CONFIRMACIÓN AQUÍ)
-  const handleDeleteResidente = useCallback(async () => {
-    if (!residenteToDelete) return;
+  const handleDeleteComunicado = useCallback(async () => {
+    if (!comunicadoToDelete) return;
     
     try {
-      // ❌ ELIMINADO: setSubmitting(true); - El hook lo maneja automáticamente
-      console.log('🗑️ ELIMINAR - Iniciando eliminación de residente:', residenteToDelete);
+      console.log('🗑️ ELIMINAR - Iniciando eliminación de comunicado:', comunicadoToDelete);
       
-      // ✅ deleteResidente ya maneja todo: elimina, actualiza estado y navega páginas
-      await deleteResidente(residenteToDelete);
+      // ✅ deleteComunicado ya maneja todo: elimina, actualiza estado y navega páginas
+      await deleteComunicado(comunicadoToDelete);
       
-      console.log('✅ ELIMINAR - Residente eliminado exitosamente');
-      // ❌ NO llamar refetch() aquí - deleteResidente ya manejó todo
+      console.log('✅ ELIMINAR - Comunicado eliminado exitosamente');
       
       // Mostrar notificación de éxito
       setNotification({
         open: true,
-        message: 'Residente eliminado exitosamente',
+        message: 'Comunicado eliminado exitosamente',
         severity: 'success'
       });
       
       // Cerrar dialog de confirmación
       setConfirmDialogOpen(false);
-      setResidenteToDelete(null);
+      setComunicadoToDelete(null);
       
     } catch (error) {
       console.error('❌ ERROR ELIMINAR:', error);
@@ -218,23 +252,22 @@ export default function ResidentesTable() {
       // Mostrar notificación de error
       setNotification({
         open: true,
-        message: 'Error al eliminar el residente',
+        message: 'Error al eliminar el comunicado',
         severity: 'error'
       });
       
       // El dialog de confirmación permanece abierto para mostrar el error
     }
-    // ❌ ELIMINADO: finally con setSubmitting(false) - El hook lo maneja automáticamente
-  }, [residenteToDelete, deleteResidente]);
+  }, [comunicadoToDelete, deleteComunicado]);
 
   // ✅ MÉTODO COORDINADOR (decide cuál llamar)
-  const handleSubmitResidente = useCallback(async (formData: CreateResidenteData | UpdateResidenteData | FormData) => {
+  const handleSubmitComunicado = useCallback(async (formData: CreateComunicadoData | UpdateComunicadoData) => {
     if (dialogMode === "edit") {
-      await handleEditResidente(formData as UpdateResidenteData);
+      await handleEditComunicado(formData as UpdateComunicadoData);
     } else {
-      await handleCreateResidente(formData as CreateResidenteData);
+      await handleCreateComunicado(formData as CreateComunicadoData);
     }
-  }, [dialogMode, handleCreateResidente, handleEditResidente]);
+  }, [dialogMode, handleCreateComunicado, handleEditComunicado]);
 
   // ✅ Cerrar notificación
   const handleCloseNotification = useCallback(() => {
@@ -268,59 +301,33 @@ export default function ResidentesTable() {
     ))
   ), []);
 
-  // ✅ Rows memoizados - solo si hay residentes
+  // ✅ Rows memoizados - solo si hay comunicados
   const tableRows = useMemo(() => {
-    if (!residentes || residentes.length === 0) return [];
+    if (!comunicados || comunicados.length === 0) return [];
     
-    return residentes.map((residente: Residente) => {
-      const rowData = getRowData(residente);
+    // 🔍 DEBUG: Ver qué datos llegan del backend
+    console.log('📊 TABLA - Comunicados recibidos:', comunicados);
+    
+    return comunicados.map((comunicado: Comunicado) => {
+      const rowData = getRowData(comunicado);
+      
+      // 🔍 DEBUG: Ver datos procesados para cada fila
+      console.log(`📝 TABLA - Comunicado ${comunicado.id}:`, {
+        original: comunicado,
+        procesado: rowData
+      });
       
       return (
-        <TableRow key={residente.id}>
+        <TableRow key={comunicado.id}>
           {rowData.map((data, index) => (
             <TableCell key={index}>
-              {index === 0 ? ( // Campo de foto
-                data ? (
-                  <Box 
-                    component="img" 
-                    src={data} 
-                    alt="Foto de perfil"
-                    sx={{ 
-                      width: 40, 
-                      height: 40, 
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '2px solid #e0e0e0'
-                    }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/images/profile/user-1.jpg';
-                    }}
-                  />
-                ) : (
-                  <Box 
-                    sx={{ 
-                      width: 40, 
-                      height: 40, 
-                      borderRadius: '50%',
-                      backgroundColor: 'grey.300',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      border: '2px solid #e0e0e0'
-                    }}
-                  >
-                    <Typography variant="caption" color="textSecondary">Sin foto</Typography>
-                  </Box>
-                )
-              ) : (
-                <Typography 
-                  variant={index === 1 ? "body1" : "body2"}
-                  fontWeight={index === 1 ? 600 : index === 2 ? 500 : 400}
-                  color={index === 3 ? "primary.main" : "textPrimary"}
-                >
-                  {data}
-                </Typography>
-              )}
+              <Typography 
+                variant={index === 0 ? "body1" : "body2"}
+                fontWeight={index === 0 ? 600 : index === 1 ? 500 : 400}
+                color="textPrimary"
+              >
+                {data}
+              </Typography>
             </TableCell>
           ))}
           {/* ✅ Celda de Acciones */}
@@ -329,15 +336,23 @@ export default function ResidentesTable() {
               <Button 
                 size="small" 
                 variant="outlined" 
-                onClick={() => handleOpenEdit(residente)}
+                onClick={() => handleOpenEdit(comunicado)}
               >
                 Editar
               </Button>
               <Button 
                 size="small" 
+                variant="outlined"
+                color="info"
+                onClick={() => handleOpenLecturas(comunicado)}
+              >
+                Ver Lecturas
+              </Button>
+              <Button 
+                size="small" 
                 variant="outlined" 
                 color="error"
-                onClick={() => handleOpenDeleteDialog(residente.id)}
+                onClick={() => handleOpenDeleteDialog(comunicado.id)}
                 disabled={submitting}
               >
                 Eliminar
@@ -347,12 +362,12 @@ export default function ResidentesTable() {
         </TableRow>
       );
     });
-  }, [residentes, handleOpenEdit, handleOpenDeleteDialog, submitting]);
+  }, [comunicados, handleOpenEdit, handleOpenLecturas, handleOpenDeleteDialog, submitting]);
 
   // ✅ RENDERIZADO CONDICIONAL (después de todos los hooks)
   if (loading) {
     return (
-      <DashboardCard title="Residentes">
+      <DashboardCard title="Comunicados">
         <Box display="flex" justifyContent="center" p={3}>
           <CircularProgress />
         </Box>
@@ -362,36 +377,15 @@ export default function ResidentesTable() {
 
   if (error) {
     return (
-      <DashboardCard title="Residentes">
+      <DashboardCard title="Comunicados">
         <Alert severity="error">{error}</Alert>
-      </DashboardCard>
-    );
-  }
-
-  // Si no hay residentes, mostrar mensaje
-  if (!residentes || residentes.length === 0) {
-    return (
-      <DashboardCard title="Residentes">
-        <Box display="flex" flexDirection="column" alignItems="center" p={3}>
-          <Typography variant="body1" color="textSecondary" mb={2}>
-            No hay residentes registrados
-          </Typography>
-          <Button 
-            variant="contained" 
-            color="primary"
-            onClick={handleOpenCreate}
-            startIcon={<IconPlus />}
-          >
-            Crear Primer Residente
-          </Button>
-        </Box>
       </DashboardCard>
     );
   }
 
   return (
     <DashboardCard 
-      title="Residentes"
+      title="Comunicados"
       action={
       <Button 
         variant="contained" 
@@ -399,14 +393,14 @@ export default function ResidentesTable() {
         onClick={handleOpenCreate}
         startIcon={<IconPlus />}  // Opcional: icono
       >
-        Nuevo Residente
+        Nuevo Comunicado
       </Button>
     }
     >
       <Box sx={{ overflow: 'auto', width: { xs: '280px', sm: 'auto' } }}>
         <TableContainer>
           <Table
-            aria-label="tabla de residentes"
+            aria-label="tabla de comunicados"
             sx={{
               whiteSpace: "nowrap",
               mt: 2
@@ -418,7 +412,15 @@ export default function ResidentesTable() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {tableRows}
+              {tableRows.length > 0 ? tableRows : (
+                <TableRow>
+                  <TableCell colSpan={TABLE_HEADERS.length} align="center">
+                    <Typography variant="body1" color="textSecondary" py={4}>
+                      No hay comunicados registrados
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
@@ -440,25 +442,33 @@ export default function ResidentesTable() {
         />
       </Box>
       
-      {/* Dialog para crear/editar residentes */}
-      <ResidenteDialogForm 
+      {/* Dialog para crear/editar comunicados */}
+      <ComunicadoDialogForm 
         open={dialogOpen}
         mode={dialogMode}
-        residente={selectedResidente}
+        comunicado={selectedComunicado}
         onClose={handleCloseDialog}
-        onSubmit={handleSubmitResidente}
+        onSubmit={handleSubmitComunicado}
       />
 
       {/* Dialog de confirmación para eliminar */}
       <ConfirmDialog
         open={confirmDialogOpen}
         onClose={handleCloseDeleteDialog}
-        onConfirm={handleDeleteResidente}
-        title="Eliminar Residente"
-        message={`¿Estás seguro de que quieres eliminar este residente?\n\nEsta acción no se puede deshacer.`}
+        onConfirm={handleDeleteComunicado}
+        title="Eliminar Comunicado"
+        message={`¿Estás seguro de que quieres eliminar este comunicado?\n\nEsta acción no se puede deshacer.`}
         confirmText="Eliminar"
         cancelText="Cancelar"
         loading={submitting}
+      />
+
+      {/* Dialog para ver lecturas del comunicado */}
+      <LecturasDialog
+        open={lecturasDialogOpen}
+        onClose={handleCloseLecturas}
+        comunicadoId={comunicadoParaLecturas?.id || null}
+        comunicadoTitulo={comunicadoParaLecturas?.titulo}
       />
 
       {/* ✅ Notificación simple */}

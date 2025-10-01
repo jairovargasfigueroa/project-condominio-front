@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { residentesService } from '../services';
-import { CreateResidenteData, Residente, UpdateResidenteData } from '../types';
+import { copropietariosService } from '../services';
+import { CreateCopropietarioData, Copropietario, UpdateCopropietarioData } from '../types';
 
-// Hook específico para gestión de residentes
-export const useResidentes = (autoFetch: boolean = true) => {
+// Hook específico para gestión de copropietarios
+export const useCopropietarios = (autoFetch: boolean = true) => {
   // Estado básico
-  const [residentes, setResidentes] = useState<Residente[]>([]);
+  const [copropietarios, setCopropietarios] = useState<Copropietario[]>([]);
   const [loading, setLoading] = useState(false);        // Solo para fetch inicial
   const [submitting, setSubmitting] = useState(false);  // Solo para operaciones CRUD
   const [error, setError] = useState<string | null>(null);
@@ -15,16 +15,16 @@ export const useResidentes = (autoFetch: boolean = true) => {
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
 
-  // Función para obtener residentes
-  const fetchResidentes = useCallback(async () => {
+  // Función para obtener copropietarios
+  const fetchCopropietarios = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await residentesService.getAll(page, pageSize);
+      const response = await copropietariosService.getAll(page, pageSize);
       
       // ✅ Estructura real de tu API: { success, message, data: [...], total_items, total_pages, current_page }
-      setResidentes(response.data || []);        // response.data contiene el array de residentes
+      setCopropietarios(response.data || []);        // response.data contiene el array de copropietarios
       setTotal(response.total_items || 0);       // response.total_items contiene el total
       
     } catch (error: any) {
@@ -35,68 +35,68 @@ export const useResidentes = (autoFetch: boolean = true) => {
         return; // El useEffect se ejecutará de nuevo con página 1
       }
       
-      const errorMessage = error instanceof Error ? error.message : 'Error al cargar residentes';
+      const errorMessage = error instanceof Error ? error.message : 'Error al cargar copropietarios';
       setError(errorMessage);
-      console.error('Error en fetchResidentes:', error);
+      console.error('Error en fetchCopropietarios:', error);
     } finally {
       setLoading(false);
     }
   }, [page, pageSize]);
 
-  // Función para crear residente
-  const createResidente = useCallback(async (data: CreateResidenteData | FormData) => {
+  // Función para crear copropietario
+  const createCopropietario = useCallback(async (data: CreateCopropietarioData | FormData) => {
     try {
       setSubmitting(true);  // ✅ Usa submitting para operaciones CRUD
       // ❌ NO ponemos setError(null) aquí - no afectamos el error global
       
-      const newResidente = await residentesService.create(data);
+      const newCopropietario = await copropietariosService.create(data);
       
       // Actualizar lista local
-      setResidentes(prev => [newResidente, ...prev]);
+      setCopropietarios(prev => [newCopropietario, ...prev]);
       setTotal(prev => prev + 1);
       
-      return newResidente;
+      return newCopropietario;
     } catch (error) {
       // ❌ NO ponemos setError() aquí - usamos notificaciones en el componente
-      console.error('Error en createResidente:', error);
+      console.error('Error en createCopropietario:', error);
       throw error;
     } finally {
       setSubmitting(false);  // ✅ Usa submitting
     }
   }, []);
 
-  // Función para actualizar residente
-  const updateResidente = useCallback(async (id: string, data: UpdateResidenteData | FormData) => {
+  // Función para actualizar copropietario
+  const updateCopropietario = useCallback(async (id: string, data: UpdateCopropietarioData | FormData) => {
     try {
       setSubmitting(true);  // ✅ Usa submitting para operaciones CRUD
       // ❌ NO ponemos setError(null) aquí - no afectamos el error global
       
-      const updatedResidente = await residentesService.update(id, data);
+      const updatedCopropietario = await copropietariosService.update(id, data);
       
       // Actualizar lista local
-      setResidentes(prev => 
-        prev.map(residente => 
-          residente.id === id ? updatedResidente : residente
+      setCopropietarios(prev => 
+        prev.map(copropietario => 
+          copropietario.id === id ? updatedCopropietario : copropietario
         )
       );
       
-      return updatedResidente;
+      return updatedCopropietario;
     } catch (error) {
       // ❌ NO ponemos setError() aquí - usamos notificaciones en el componente
-      console.error('Error en updateResidente:', error);
+      console.error('Error en updateCopropietario:', error);
       throw error;
     } finally {
       setSubmitting(false);  // ✅ Usa submitting
     }
   }, []);
 
-  // Función para eliminar residente
-  const deleteResidente = useCallback(async (id: string) => {
+  // Función para eliminar copropietario
+  const deleteCopropietario = useCallback(async (id: string) => {
     try {
       setSubmitting(true);  // ✅ Usa submitting para operaciones CRUD
       // ❌ NO ponemos setError(null) aquí - no afectamos el error global
       
-      await residentesService.delete(id);
+      await copropietariosService.delete(id);
       
       // Calcular nueva página después de eliminar
       const newTotal = total - 1;
@@ -114,7 +114,7 @@ export const useResidentes = (autoFetch: boolean = true) => {
       });
       
       // Actualizar estado local
-      setResidentes(prev => prev.filter(residente => residente.id !== id));
+      setCopropietarios(prev => prev.filter(copropietario => copropietario.id !== id));
       setTotal(newTotal);
       
       // Si cambió la página, actualizarla
@@ -125,7 +125,7 @@ export const useResidentes = (autoFetch: boolean = true) => {
       
     } catch (error) {
       // ❌ NO ponemos setError() aquí - usamos notificaciones en el componente
-      console.error('Error en deleteResidente:', error);
+      console.error('Error en deleteCopropietario:', error);
       throw error;
     } finally {
       setSubmitting(false);  // ✅ Usa submitting
@@ -145,20 +145,20 @@ export const useResidentes = (autoFetch: boolean = true) => {
 
   // Función para refrescar datos
   const refetch = useCallback(() => {
-    return fetchResidentes();
-  }, [fetchResidentes]);
+    return fetchCopropietarios();
+  }, [fetchCopropietarios]);
 
   // Cargar datos automáticamente cuando cambia página, pageSize o autoFetch
   useEffect(() => {
     if (autoFetch) {
       console.log('🔄 useEffect - Ejecutando fetch por cambio de página/pageSize:', { page, pageSize });
-      fetchResidentes();
+      fetchCopropietarios();
     }
-  }, [autoFetch, page, pageSize, fetchResidentes]); // ✅ Incluir fetchResidentes para evitar warning
+  }, [autoFetch, page, pageSize, fetchCopropietarios]); // ✅ Incluir fetchCopropietarios para evitar warning
 
   return {
     // Estado
-    residentes,
+    copropietarios,
     loading,      // ✅ Solo para fetch inicial (spinner de tabla)
     submitting,   // ✅ Solo para operaciones CRUD (deshabilitar botones)
     error,
@@ -167,9 +167,9 @@ export const useResidentes = (autoFetch: boolean = true) => {
     total,
     
     // Acciones CRUD
-    createResidente,
-    updateResidente,
-    deleteResidente,
+    createCopropietario,
+    updateCopropietario,
+    deleteCopropietario,
     
     // Navegación
     changePage,

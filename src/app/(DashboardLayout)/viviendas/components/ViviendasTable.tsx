@@ -16,30 +16,31 @@ import {
 } from "@mui/material";
 import { useCallback, useMemo, useState } from "react";
 import DashboardCard from "../../components/shared/DashboardCard";
-import { useResidentes } from "../hooks";
-import { CreateResidenteData, Residente, UpdateResidenteData } from "../types";
+import { useViviendas } from "../hooks";
+import { CreateViviendaData, Vivienda, UpdateViviendaData, ViviendaDetalles } from "../types";
 import { IconPlus } from "@tabler/icons-react";
-import ResidenteDialogForm from "./ResidenteDialogForm";
+import ViviendaDialogForm from "./ViviendaDialogForm";
 import ConfirmDialog from "./ConfirmDialog";
+import { ViviendaDetallesDialog } from "./ViviendaDetallesDialog";
+import { viviendasService } from "../services";
 
 // ✅ CONSTANTES OPTIMIZADAS (fuera del componente)
-const TABLE_HEADERS = ['Foto', 'Id', 'Usuario', 'Email', 'Zona', 'Vivienda', 'Acciones'];
+const TABLE_HEADERS = ['Id', 'Número', 'Dirección', 'Categoría', 'Copropietario', 'Acciones'];
 
 const ROWS_PER_PAGE_OPTIONS = [2, 5, 10, 25, 50];
 
 // ✅ Función para extraer datos (con validaciones seguras)
-const getRowData = (residente: any) => [
-  residente?.usuario?.foto_perfil_url || null,                    // Foto de perfil URL
-  residente?.id || 'N/A',                                         // ID del residente
-  residente?.usuario?.username || 'Sin usuario',                  // Nombre de usuario (validación segura)
-  residente?.usuario?.email || 'Sin email',                      // Email del usuario (validación segura)
-  residente?.zona || 'Sin zona',                                 // Zona del residente
-  residente?.vivienda?.numero || 'Sin asignar',                   // Número de vivienda (navegación segura)
+const getRowData = (vivienda: any) => [
+  vivienda?.id || 'N/A',                                          // ID de la vivienda
+  vivienda?.numero || 'Sin número',                               // Número de la vivienda
+  vivienda?.direccion || 'Sin dirección',                         // Dirección de la vivienda
+  vivienda?.categoria?.nombre || 'Sin categoría',                 // Categoría de la vivienda
+  vivienda?.copropietario?.usuario?.username || 'Sin asignar',    // Copropietario asignado
 ];
 
-export default function ResidentesTable() {
+export default function ViviendasTable() {
   const {
-    residentes,
+    viviendas,
     loading,
     submitting,   // ✅ Ahora viene del hook
     error,
@@ -48,22 +49,21 @@ export default function ResidentesTable() {
     total,
     changePage,
     changePageSize,
-    createResidente,
-    updateResidente,
-    deleteResidente,  // 🆕 Agregar deleteResidente
+    createVivienda,
+    updateVivienda,
+    deleteVivienda,
     refetch
 
-  } = useResidentes();
+  } = useViviendas();
 
   // ✅ TODOS LOS HOOKS PRIMERO (Reglas de React)
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
-  const [selectedResidente, setSelectedResidente] = useState<Residente | null>(null);
-  // ❌ ELIMINADO: const [submitting, setSubmitting] = useState(false); - Ahora viene del hook
+  const [selectedVivienda, setSelectedVivienda] = useState<Vivienda | null>(null);
   
   // ✅ Estados para el dialog de confirmación de eliminación
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [residenteToDelete, setResidenteToDelete] = useState<string | null>(null);
+  const [viviendaToDelete, setViviendaToDelete] = useState<string | null>(null);
 
   // ✅ Estados para notificaciones simples
   const [notification, setNotification] = useState<{
@@ -76,47 +76,51 @@ export default function ResidentesTable() {
     severity: 'success'
   });
 
-  // ✅ Abrir diálogo para CREAR nuevo residente
+  // ✅ Estados para el diálogo de detalles
+  const [detallesDialogOpen, setDetallesDialogOpen] = useState(false);
+  const [viviendaDetalles, setViviendaDetalles] = useState<ViviendaDetalles | null>(null);
+  const [loadingDetalles, setLoadingDetalles] = useState(false);
+
+  // ✅ Abrir diálogo para CREAR nueva vivienda
   const handleOpenCreate = useCallback(() => {
     setDialogMode("create");
-    setSelectedResidente(null);
+    setSelectedVivienda(null);
     setDialogOpen(true);
   }, []);
 
-  // ✅ Abrir diálogo para EDITAR residente existente
-  const handleOpenEdit = useCallback((residente: Residente) => {
+  // ✅ Abrir diálogo para EDITAR vivienda existente
+  const handleOpenEdit = useCallback((vivienda: Vivienda) => {
     setDialogMode("edit");
-    setSelectedResidente(residente);
+    setSelectedVivienda(vivienda);
     setDialogOpen(true);
   }, []);
 
   // ✅ Cerrar diálogo
   const handleCloseDialog = useCallback(() => {
     setDialogOpen(false);
-    setSelectedResidente(null);
+    setSelectedVivienda(null);
   }, []);
 
   // ✅ MÉTODO ESPECÍFICO PARA CREAR
-  const handleCreateResidente = useCallback(async (formData: CreateResidenteData | FormData) => {
+  const handleCreateVivienda = useCallback(async (formData: CreateViviendaData) => {
     try {
-      // ❌ ELIMINADO: setSubmitting(true); - El hook lo maneja automáticamente
-      console.log('🚀 CREAR - Iniciando creación de residente...');
+      console.log('🚀 CREAR - Iniciando creación de vivienda...');
       
-      await createResidente(formData);
+      await createVivienda(formData);
       
-      console.log('✅ CREAR - Residente creado exitosamente');
+      console.log('✅ CREAR - Vivienda creada exitosamente');
       await refetch();
       
       // Mostrar notificación de éxito
       setNotification({
         open: true,
-        message: 'Residente creado exitosamente',
+        message: 'Vivienda creada exitosamente',
         severity: 'success'
       });
       
       // Cerrar modal solo si fue exitoso
       setDialogOpen(false);
-      setSelectedResidente(null);
+      setSelectedVivienda(null);
       
     } catch (error) {
       console.error('❌ ERROR CREAR:', error);
@@ -124,41 +128,39 @@ export default function ResidentesTable() {
       // Mostrar notificación de error
       setNotification({
         open: true,
-        message: 'Error al crear el residente',
+        message: 'Error al crear la vivienda',
         severity: 'error'
       });
       
       // Modal permanece abierto para mostrar error
     }
-    // ❌ ELIMINADO: finally con setSubmitting(false) - El hook lo maneja automáticamente
-  }, [createResidente, refetch]);
+  }, [createVivienda, refetch]);
 
   // ✅ MÉTODO ESPECÍFICO PARA EDITAR
-  const handleEditResidente = useCallback(async (formData: UpdateResidenteData | FormData) => {
-    if (!selectedResidente) {
-      console.error('❌ No hay residente seleccionado para editar');
+  const handleEditVivienda = useCallback(async (formData: UpdateViviendaData) => {
+    if (!selectedVivienda) {
+      console.error('❌ No hay vivienda seleccionada para editar');
       return;
     }
     
     try {
-      // ❌ ELIMINADO: setSubmitting(true); - El hook lo maneja automáticamente
-      console.log('🔄 EDITAR - Iniciando edición de residente:', selectedResidente.id);
+      console.log('🔄 EDITAR - Iniciando edición de vivienda:', selectedVivienda.id);
       
-      await updateResidente(selectedResidente.id, formData);
+      await updateVivienda(selectedVivienda.id, formData);
       
-      console.log('✅ EDITAR - Residente actualizado exitosamente');
+      console.log('✅ EDITAR - Vivienda actualizada exitosamente');
       await refetch();
       
       // Mostrar notificación de éxito
       setNotification({
         open: true,
-        message: 'Residente actualizado exitosamente',
+        message: 'Vivienda actualizada exitosamente',
         severity: 'success'
       });
       
       // Cerrar modal solo si fue exitoso
       setDialogOpen(false);
-      setSelectedResidente(null);
+      setSelectedVivienda(null);
       
     } catch (error) {
       console.error('❌ ERROR EDITAR:', error);
@@ -166,51 +168,75 @@ export default function ResidentesTable() {
       // Mostrar notificación de error
       setNotification({
         open: true,
-        message: 'Error al actualizar el residente',
+        message: 'Error al actualizar la vivienda',
         severity: 'error'
       });
       
       // Modal permanece abierto para mostrar error
     }
-    // ❌ ELIMINADO: finally con setSubmitting(false) - El hook lo maneja automáticamente
-  }, [selectedResidente, updateResidente, refetch]);
+  }, [selectedVivienda, updateVivienda, refetch]);
 
   // ✅ ABRIR DIALOG DE CONFIRMACIÓN PARA ELIMINAR
-  const handleOpenDeleteDialog = useCallback((residenteId: string) => {
-    setResidenteToDelete(residenteId);
+  const handleOpenDeleteDialog = useCallback((viviendaId: string) => {
+    setViviendaToDelete(viviendaId);
     setConfirmDialogOpen(true);
   }, []);
 
   // ✅ CERRAR DIALOG DE CONFIRMACIÓN
   const handleCloseDeleteDialog = useCallback(() => {
     setConfirmDialogOpen(false);
-    setResidenteToDelete(null);
+    setViviendaToDelete(null);
+  }, []);
+
+  // ✅ ABRIR DIÁLOGO DE DETALLES
+  const handleOpenDetalles = useCallback(async (viviendaId: string) => {
+    try {
+      setLoadingDetalles(true);
+      setDetallesDialogOpen(true);
+      
+      const response = await viviendasService.getDetalles(viviendaId);
+      setViviendaDetalles(response.data);
+    } catch (error) {
+      console.error('Error al cargar detalles:', error);
+      setNotification({
+        open: true,
+        message: 'Error al cargar los detalles de la vivienda',
+        severity: 'error'
+      });
+      setDetallesDialogOpen(false);
+    } finally {
+      setLoadingDetalles(false);
+    }
+  }, []);
+
+  // ✅ CERRAR DIÁLOGO DE DETALLES
+  const handleCloseDetalles = useCallback(() => {
+    setDetallesDialogOpen(false);
+    setViviendaDetalles(null);
   }, []);
 
   // ✅ MÉTODO ESPECÍFICO PARA ELIMINAR (SIN CONFIRMACIÓN AQUÍ)
-  const handleDeleteResidente = useCallback(async () => {
-    if (!residenteToDelete) return;
+  const handleDeleteVivienda = useCallback(async () => {
+    if (!viviendaToDelete) return;
     
     try {
-      // ❌ ELIMINADO: setSubmitting(true); - El hook lo maneja automáticamente
-      console.log('🗑️ ELIMINAR - Iniciando eliminación de residente:', residenteToDelete);
+      console.log('🗑️ ELIMINAR - Iniciando eliminación de vivienda:', viviendaToDelete);
       
-      // ✅ deleteResidente ya maneja todo: elimina, actualiza estado y navega páginas
-      await deleteResidente(residenteToDelete);
+      // ✅ deleteVivienda ya maneja todo: elimina, actualiza estado y navega páginas
+      await deleteVivienda(viviendaToDelete);
       
-      console.log('✅ ELIMINAR - Residente eliminado exitosamente');
-      // ❌ NO llamar refetch() aquí - deleteResidente ya manejó todo
+      console.log('✅ ELIMINAR - Vivienda eliminada exitosamente');
       
       // Mostrar notificación de éxito
       setNotification({
         open: true,
-        message: 'Residente eliminado exitosamente',
+        message: 'Vivienda eliminada exitosamente',
         severity: 'success'
       });
       
       // Cerrar dialog de confirmación
       setConfirmDialogOpen(false);
-      setResidenteToDelete(null);
+      setViviendaToDelete(null);
       
     } catch (error) {
       console.error('❌ ERROR ELIMINAR:', error);
@@ -218,23 +244,22 @@ export default function ResidentesTable() {
       // Mostrar notificación de error
       setNotification({
         open: true,
-        message: 'Error al eliminar el residente',
+        message: 'Error al eliminar la vivienda',
         severity: 'error'
       });
       
       // El dialog de confirmación permanece abierto para mostrar el error
     }
-    // ❌ ELIMINADO: finally con setSubmitting(false) - El hook lo maneja automáticamente
-  }, [residenteToDelete, deleteResidente]);
+  }, [viviendaToDelete, deleteVivienda]);
 
   // ✅ MÉTODO COORDINADOR (decide cuál llamar)
-  const handleSubmitResidente = useCallback(async (formData: CreateResidenteData | UpdateResidenteData | FormData) => {
+  const handleSubmitVivienda = useCallback(async (formData: CreateViviendaData | UpdateViviendaData) => {
     if (dialogMode === "edit") {
-      await handleEditResidente(formData as UpdateResidenteData);
+      await handleEditVivienda(formData as UpdateViviendaData);
     } else {
-      await handleCreateResidente(formData as CreateResidenteData);
+      await handleCreateVivienda(formData as CreateViviendaData);
     }
-  }, [dialogMode, handleCreateResidente, handleEditResidente]);
+  }, [dialogMode, handleCreateVivienda, handleEditVivienda]);
 
   // ✅ Cerrar notificación
   const handleCloseNotification = useCallback(() => {
@@ -268,55 +293,32 @@ export default function ResidentesTable() {
     ))
   ), []);
 
-  // ✅ Rows memoizados - solo si hay residentes
+  // ✅ Rows memoizados - solo si hay viviendas
   const tableRows = useMemo(() => {
-    if (!residentes || residentes.length === 0) return [];
+    if (!viviendas || viviendas.length === 0) return [];
     
-    return residentes.map((residente: Residente) => {
-      const rowData = getRowData(residente);
+    return viviendas.map((vivienda: Vivienda) => {
+      const rowData = getRowData(vivienda);
       
       return (
-        <TableRow key={residente.id}>
+        <TableRow key={vivienda.id}>
           {rowData.map((data, index) => (
             <TableCell key={index}>
-              {index === 0 ? ( // Campo de foto
-                data ? (
-                  <Box 
-                    component="img" 
-                    src={data} 
-                    alt="Foto de perfil"
-                    sx={{ 
-                      width: 40, 
-                      height: 40, 
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '2px solid #e0e0e0'
-                    }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/images/profile/user-1.jpg';
-                    }}
-                  />
-                ) : (
-                  <Box 
-                    sx={{ 
-                      width: 40, 
-                      height: 40, 
-                      borderRadius: '50%',
-                      backgroundColor: 'grey.300',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      border: '2px solid #e0e0e0'
-                    }}
-                  >
-                    <Typography variant="caption" color="textSecondary">Sin foto</Typography>
-                  </Box>
-                )
+              {index === 3 && vivienda.categoria ? (
+                // Celda especial para categoría con tarifa
+                <Box>
+                  <Typography variant="body2" fontWeight={500}>
+                    {vivienda.categoria.nombre}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    ${vivienda.categoria.tarifa_mensual}
+                  </Typography>
+                </Box>
               ) : (
                 <Typography 
-                  variant={index === 1 ? "body1" : "body2"}
-                  fontWeight={index === 1 ? 600 : index === 2 ? 500 : 400}
-                  color={index === 3 ? "primary.main" : "textPrimary"}
+                  variant={index === 0 ? "body1" : "body2"}
+                  fontWeight={index === 0 ? 600 : index === 1 ? 500 : 400}
+                  color={index === 2 ? "primary.main" : "textPrimary"}
                 >
                   {data}
                 </Typography>
@@ -325,11 +327,20 @@ export default function ResidentesTable() {
           ))}
           {/* ✅ Celda de Acciones */}
           <TableCell>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button 
+                size="small" 
+                variant="contained" 
+                color="info"
+                onClick={() => handleOpenDetalles(vivienda.id)}
+                disabled={loadingDetalles}
+              >
+                Ver Detalles
+              </Button>
               <Button 
                 size="small" 
                 variant="outlined" 
-                onClick={() => handleOpenEdit(residente)}
+                onClick={() => handleOpenEdit(vivienda)}
               >
                 Editar
               </Button>
@@ -337,7 +348,7 @@ export default function ResidentesTable() {
                 size="small" 
                 variant="outlined" 
                 color="error"
-                onClick={() => handleOpenDeleteDialog(residente.id)}
+                onClick={() => handleOpenDeleteDialog(vivienda.id)}
                 disabled={submitting}
               >
                 Eliminar
@@ -347,12 +358,12 @@ export default function ResidentesTable() {
         </TableRow>
       );
     });
-  }, [residentes, handleOpenEdit, handleOpenDeleteDialog, submitting]);
+  }, [viviendas, handleOpenEdit, handleOpenDeleteDialog, handleOpenDetalles, submitting, loadingDetalles]);
 
   // ✅ RENDERIZADO CONDICIONAL (después de todos los hooks)
   if (loading) {
     return (
-      <DashboardCard title="Residentes">
+      <DashboardCard title="Viviendas">
         <Box display="flex" justifyContent="center" p={3}>
           <CircularProgress />
         </Box>
@@ -362,51 +373,30 @@ export default function ResidentesTable() {
 
   if (error) {
     return (
-      <DashboardCard title="Residentes">
+      <DashboardCard title="Viviendas">
         <Alert severity="error">{error}</Alert>
       </DashboardCard>
     );
   }
 
-  // Si no hay residentes, mostrar mensaje
-  if (!residentes || residentes.length === 0) {
-    return (
-      <DashboardCard title="Residentes">
-        <Box display="flex" flexDirection="column" alignItems="center" p={3}>
-          <Typography variant="body1" color="textSecondary" mb={2}>
-            No hay residentes registrados
-          </Typography>
-          <Button 
-            variant="contained" 
-            color="primary"
-            onClick={handleOpenCreate}
-            startIcon={<IconPlus />}
-          >
-            Crear Primer Residente
-          </Button>
-        </Box>
-      </DashboardCard>
-    );
-  }
-
   return (
-    <DashboardCard 
-      title="Residentes"
+    <DashboardCard
+      title="Viviendas"
       action={
-      <Button 
-        variant="contained" 
+      <Button
+        variant="contained"
         color="primary"
         onClick={handleOpenCreate}
         startIcon={<IconPlus />}  // Opcional: icono
       >
-        Nuevo Residente
+        Nueva Vivienda
       </Button>
     }
     >
       <Box sx={{ overflow: 'auto', width: { xs: '280px', sm: 'auto' } }}>
         <TableContainer>
           <Table
-            aria-label="tabla de residentes"
+            aria-label="tabla de viviendas"
             sx={{
               whiteSpace: "nowrap",
               mt: 2
@@ -418,7 +408,15 @@ export default function ResidentesTable() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {tableRows}
+              {tableRows.length > 0 ? tableRows : (
+                <TableRow>
+                  <TableCell colSpan={TABLE_HEADERS.length} align="center">
+                    <Typography variant="body1" color="textSecondary" py={4}>
+                      No hay viviendas registradas
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
@@ -439,26 +437,34 @@ export default function ResidentesTable() {
           }
         />
       </Box>
-      
-      {/* Dialog para crear/editar residentes */}
-      <ResidenteDialogForm 
+
+      {/* Dialog para crear/editar viviendas */}
+      <ViviendaDialogForm
         open={dialogOpen}
         mode={dialogMode}
-        residente={selectedResidente}
+        vivienda={selectedVivienda}
         onClose={handleCloseDialog}
-        onSubmit={handleSubmitResidente}
+        onSubmit={handleSubmitVivienda}
       />
 
       {/* Dialog de confirmación para eliminar */}
       <ConfirmDialog
         open={confirmDialogOpen}
         onClose={handleCloseDeleteDialog}
-        onConfirm={handleDeleteResidente}
-        title="Eliminar Residente"
-        message={`¿Estás seguro de que quieres eliminar este residente?\n\nEsta acción no se puede deshacer.`}
+        onConfirm={handleDeleteVivienda}
+        title="Eliminar Vivienda"
+        message={`¿Estás seguro de que quieres eliminar esta vivienda?\n\nEsta acción no se puede deshacer.`}
         confirmText="Eliminar"
         cancelText="Cancelar"
         loading={submitting}
+      />
+
+      {/* Diálogo de detalles de vivienda */}
+      <ViviendaDetallesDialog
+        open={detallesDialogOpen}
+        onClose={handleCloseDetalles}
+        viviendaDetalles={viviendaDetalles}
+        loading={loadingDetalles}
       />
 
       {/* ✅ Notificación simple */}
@@ -468,8 +474,8 @@ export default function ResidentesTable() {
         onClose={handleCloseNotification}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={handleCloseNotification} 
+        <Alert
+          onClose={handleCloseNotification}
           severity={notification.severity}
           variant="filled"
           sx={{ width: '100%' }}
@@ -477,6 +483,14 @@ export default function ResidentesTable() {
           {notification.message}
         </Alert>
       </Snackbar>
+
+      {/* ✅ Diálogo de Detalles de Vivienda */}
+      <ViviendaDetallesDialog
+        open={detallesDialogOpen}
+        onClose={handleCloseDetalles}
+        viviendaDetalles={viviendaDetalles}
+        loading={loadingDetalles}
+      />
 
     </DashboardCard>
   );
